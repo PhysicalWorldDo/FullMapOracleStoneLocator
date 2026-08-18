@@ -10,9 +10,9 @@
     "ApiMajor": 1,
     "Tags": ["map", "oracle-stone", "utility"],
     "AcceptsFeedback": true,
-    "RepoUrl": "https://github.com/<owner>/FullMapOracleStoneLocator",
+    "RepoUrl": "https://github.com/PhysicalWorldDo/FullMapOracleStoneLocator",
     "IconUrl": "",
-    "DownloadLinkInstall": "https://github.com/<owner>/FullMapOracleStoneLocator/releases/download/v1.0.0/com.anomalynte.oracle-stone-locator-1.0.0.zip",
-    "DownloadLinkUpdate": "https://github.com/<owner>/FullMapOracleStoneLocator/releases/download/v1.0.0/com.anomalynte.oracle-stone-locator-1.0.0.zip"
+    "DownloadLinkInstall": "https://github.com/PhysicalWorldDo/FullMapOracleStoneLocator/releases/download/v1.0.0/com.anomalynte.oracle-stone-locator-1.0.0.zip",
+    "DownloadLinkUpdate": "https://github.com/PhysicalWorldDo/FullMapOracleStoneLocator/releases/download/v1.0.0/com.anomalynte.oracle-stone-locator-1.0.0.zip"
   }
 ]
