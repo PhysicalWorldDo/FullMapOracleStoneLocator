@@ -19,7 +19,7 @@
 插件源地址：
 
 ```
-https://raw.githubusercontent.com/<owner>/FullMapOracleStoneLocator/main/pluginmaster.json
+https://raw.githubusercontent.com/PhysicalWorldDo/FullMapOracleStoneLocator/master/pluginmaster.json
 ```
 
 ## 从源码构建
