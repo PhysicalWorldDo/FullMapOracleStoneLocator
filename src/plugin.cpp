@@ -982,9 +982,9 @@ extern "C" ANOMALY_SDK_EXPORT AnomalyStatusV1 ANOMALY_CALL AnomalyPluginEntryV1(
     }
     *descriptor = {
         sizeof(*descriptor), ANOMALY_PLUGIN_API_V1_MAJOR, ANOMALY_PLUGIN_API_V1_MINOR,
-        anomaly::sdk::StringView("com.anomalynte.oracle-stone-locator"),
+        anomaly::sdk::StringView("physicalworlddo.oracle-stone-locator"),
         anomaly::sdk::StringView("全地图未获取石头定位"),
-        anomaly::sdk::StringView("Anomaly"), anomaly::sdk::StringView("1.0.0"),
+        anomaly::sdk::StringView("PhysicalWorldDo"), anomaly::sdk::StringView("1.0.1"),
         Load, Start, Stop, Unload, Update, Draw};
     return {ANOMALY_STATUS_V1_OK, 0, {}};
 }
