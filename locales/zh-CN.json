@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "locale": "zh-CN",
+  "messages": {
+    "window.title": "全地图未获取石头定位",
+    "option.enabled": "在地图上显示未获取石头",
+    "state.disabled": "已关闭",
+    "state.syncing": "正在同步地图标记",
+    "state.active": "地图标记已生效",
+    "state.unavailable": "当前游戏版本未通过石头定位 Profile 校验，功能已安全停用。",
+    "summary.counts": "总计 {0} / 未获取 {1} / 已获取 {2}",
+    "summary.markers": "已显示标记 {0} / {1}",
+    "table.id": "石头 ID",
+    "table.level": "地图",
+    "table.floor": "楼层",
+    "table.position": "坐标"
+  }
+}

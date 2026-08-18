@@ -1,0 +1,12 @@
+# Build artifacts
+build/
+dist/
+*.lib
+*.exp
+*.pdb
+
+# IDE
+.vs/
+.idea/
+.vscode/
+*.user

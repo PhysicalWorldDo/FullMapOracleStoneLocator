@@ -1,0 +1,27 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 22,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "windows-vs2022",
+      "displayName": "Windows x64 / Visual Studio 2022",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "AnomalySDK_DIR": "$env{AnomalySDK_DIR}"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "windows-relwithdebinfo",
+      "configurePreset": "windows-vs2022",
+      "configuration": "RelWithDebInfo"
+    }
+  ]
+}

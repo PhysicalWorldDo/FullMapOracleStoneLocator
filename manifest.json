@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 2,
+  "id": "com.anomalynte.oracle-stone-locator",
+  "name": "全地图未获取石头定位",
+  "description": "纯插件实现：在大地图和小地图上定位当前存档尚未获取的全部石头。",
+  "author": "AnomalyNTE",
+  "license": "AGPL-3.0-only",
+  "version": "1.0.0",
+  "entry": "plugin.dll",
+  "api": {"major": 1, "minMinor": 0, "maxMinor": 0},
+  "games": ["nte"],
+  "builds": ["nte-*"],
+  "loadPhase": "game-ready",
+  "services": [
+    {"id": "anomaly.core", "minVersion": 1},
+    {"id": "anomaly.ui", "minVersion": 1},
+    {"id": "anomaly.localization", "minVersion": 1},
+    {"id": "anomaly.interop.signature", "minVersion": 1},
+    {"id": "anomaly.interop.hook", "minVersion": 1, "optional": true},
+    {"id": "anomaly.ue5.framework", "minVersion": 1, "optional": true},
+    {"id": "anomaly.ue5.names", "minVersion": 1},
+    {"id": "anomaly.ue5.objects", "minVersion": 1},
+    {"id": "anomaly.nte.session", "minVersion": 1, "optional": true},
+    {"id": "anomaly.nte.player", "minVersion": 1, "optional": true}
+  ],
+  "capabilities": [
+    "ui",
+    "memory-read",
+    "interop-signature",
+    "interop-hook",
+    "game-events",
+    "ue5-names",
+    "ue5-objects",
+    "nte-session-snapshot",
+    "nte-player-snapshot"
+  ]
+}
