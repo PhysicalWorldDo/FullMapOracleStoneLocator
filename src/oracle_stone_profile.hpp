@@ -102,7 +102,7 @@ inline constexpr std::int64_t kOracleStoneFloorOffset = 48;
 inline constexpr std::int64_t kOracleStoneAreaOffset = 52;
 inline constexpr std::int64_t kOracleStoneLocationOffset = 64;
 inline constexpr std::int64_t kOracleStoneMapExploreOffset = 88;
-inline constexpr std::int64_t kOracleStoneStateContextOffset = 14824;
+inline constexpr std::int64_t kOracleStoneStateContextOffset = 0x39F8;
 
 // Oracle icon map layout.
 inline constexpr std::int64_t kOracleStoneIconMapOffset = 96;

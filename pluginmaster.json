@@ -2,7 +2,7 @@
   {
     "Name": "全地图未获取石头定位",
     "InternalName": "physicalworlddo.oracle-stone-locator",
-    "Version": "1.0.1",
+    "Version": "1.0.2",
     "Author": "PhysicalWorldDo",
     "Punchline": "在大地图和小地图上定位当前存档尚未获取的全部石头。",
     "Description": "纯插件实现：扫描并定位当前存档尚未获取的全部石头，在大地图和小地图上显示标记，并在插件窗口内列出石头 ID、所属地图、楼层与坐标。",
@@ -12,7 +12,7 @@
     "AcceptsFeedback": true,
     "RepoUrl": "https://github.com/PhysicalWorldDo/FullMapOracleStoneLocator",
     "IconUrl": "",
-    "DownloadLinkInstall": "https://github.com/PhysicalWorldDo/FullMapOracleStoneLocator/releases/download/v1.0.1/physicalworlddo.oracle-stone-locator-1.0.1.zip",
-    "DownloadLinkUpdate": "https://github.com/PhysicalWorldDo/FullMapOracleStoneLocator/releases/download/v1.0.1/physicalworlddo.oracle-stone-locator-1.0.1.zip"
+    "DownloadLinkInstall": "https://github.com/PhysicalWorldDo/FullMapOracleStoneLocator/releases/download/v1.0.2/physicalworlddo.oracle-stone-locator-1.0.2.zip",
+    "DownloadLinkUpdate": "https://github.com/PhysicalWorldDo/FullMapOracleStoneLocator/releases/download/v1.0.2/physicalworlddo.oracle-stone-locator-1.0.2.zip"
   }
 ]
