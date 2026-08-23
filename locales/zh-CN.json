@@ -4,6 +4,9 @@
   "messages": {
     "window.title": "全地图未获取石头定位",
     "option.enabled": "在地图上显示未获取石头",
+    "option.auto_teleport": "自动传送到未获取石头",
+    "option.auto_teleport_delay": "传送间隔（毫秒）",
+    "option.auto_teleport_offset": "传送偏移距离（厘米）",
     "state.disabled": "已关闭",
     "state.syncing": "正在同步地图标记",
     "state.active": "地图标记已生效",
@@ -13,6 +16,7 @@
     "table.id": "石头 ID",
     "table.level": "地图",
     "table.floor": "楼层",
-    "table.position": "坐标"
+    "table.position": "坐标",
+    "table.teleport": "传送"
   }
 }

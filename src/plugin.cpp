@@ -77,6 +77,24 @@ struct OracleStoneRecord {
     bool map_explore{};
 };
 
+struct PendingTeleport {
+    bool queued{};
+    AnomalyGenerationHandleV1 world{};
+    AnomalyGenerationHandleV1 player{};
+    double position[3]{};
+};
+
+struct AutoTeleportState {
+    enum class Stage { FindTarget, Outside, Collecting };
+    std::atomic_bool enabled{false};
+    std::atomic_uint32_t delay_ms{500};
+    std::atomic_uint32_t offset_cm{500};
+    Stage stage{Stage::FindTarget};
+    double wait_elapsed{};
+    double target_position[3]{};
+    std::string target_id;
+};
+
 struct Context {
     const AnomalyHostApiV1* host{};
     anomaly::plugins::Localizer localizer;
@@ -87,6 +105,7 @@ struct Context {
     const AnomalyUe5FrameworkServiceV1* framework{};
     const AnomalyNteSessionServiceV1* session{};
     const AnomalyNtePlayerServiceV1* player{};
+    const AnomalyNtePlayerTeleportServiceV1* player_teleport{};
 
     std::uintptr_t g_world_address{};
     std::uintptr_t g_objects_address{};
@@ -108,6 +127,8 @@ struct Context {
     std::mutex mutex;
     std::vector<OracleStoneRecord> records;
     std::vector<std::string> marker_ids;
+    PendingTeleport pending{};
+    AutoTeleportState auto_teleport{};
     bool scan_attempted{};
     bool scan_ready{};
     bool markers_enabled{true};
@@ -748,7 +769,11 @@ void SyncMarkers(Context& context) {
     }
 }
 
-void Update(Context& context, double /*delta_seconds*/) {
+void QueueTeleport(Context& context, const double position[3]);
+void ExecuteTeleport(Context& context);
+void RunAutoTeleport(Context& context, double delta_seconds);
+
+void Update(Context& context, double delta_seconds) {
     if (!CoreReady(context.core) || !ObjectsReady(context.objects) ||
         !NamesReady(context.names) || !SignatureReady(context.signature))
         return;
@@ -762,6 +787,129 @@ void Update(Context& context, double /*delta_seconds*/) {
     if (context.scan_ready) {
         RefreshStates(context);
         SyncMarkers(context);
+    }
+    ExecuteTeleport(context);
+    RunAutoTeleport(context, delta_seconds);
+}
+
+void QueueTeleport(Context& context, const double position[3]) {
+    if (context.session == nullptr || context.player == nullptr ||
+        context.player->snapshot == nullptr || context.session->snapshot == nullptr) {
+        return;
+    }
+
+    AnomalyNteSessionSnapshotV1 session_snapshot{sizeof(session_snapshot)};
+    if (context.session->snapshot(context.session->user, &session_snapshot).code !=
+        ANOMALY_STATUS_V1_OK) {
+        return;
+    }
+
+    AnomalyNtePlayerSnapshotV1 player_snapshot{sizeof(player_snapshot)};
+    if (context.player->snapshot(context.player->user, &player_snapshot).code !=
+            ANOMALY_STATUS_V1_OK ||
+        (player_snapshot.flags & ANOMALY_NTE_SNAPSHOT_V1_VALID) == 0) {
+        return;
+    }
+
+    std::scoped_lock lock(context.mutex);
+    context.pending.queued = true;
+    context.pending.world = session_snapshot.world;
+    context.pending.player = player_snapshot.handle;
+    for (std::size_t axis = 0; axis != 3; ++axis) {
+        context.pending.position[axis] = position[axis];
+    }
+}
+
+void ExecuteTeleport(Context& context) {
+    if (context.player_teleport == nullptr ||
+        context.player_teleport->teleport == nullptr) {
+        return;
+    }
+
+    PendingTeleport pending{};
+    {
+        std::scoped_lock lock(context.mutex);
+        if (!context.pending.queued) return;
+        pending = context.pending;
+        context.pending = {};
+    }
+    if (pending.world.id == 0 || pending.player.id == 0) return;
+
+    AnomalyNtePlayerTeleportRequestV1 request{sizeof(request)};
+    request.flags = 0;
+    request.world = pending.world;
+    request.player = pending.player;
+    for (std::size_t axis = 0; axis != 3; ++axis) {
+        request.position[axis] = pending.position[axis];
+    }
+    static_cast<void>(context.player_teleport->teleport(
+        context.player_teleport->user, &request));
+}
+
+void RunAutoTeleport(Context& context, const double delta_seconds) {
+    if (!context.auto_teleport.enabled.load(std::memory_order_acquire)) return;
+
+    switch (context.auto_teleport.stage) {
+    case AutoTeleportState::Stage::FindTarget: {
+        {
+            std::scoped_lock lock(context.mutex);
+            if (context.pending.queued) return;
+        }
+        double target_position[3]{};
+        bool found = false;
+        {
+            std::scoped_lock lock(context.mutex);
+            for (const auto& record : context.records) {
+                if (record.state == OracleStoneAvailable) {
+                    for (std::size_t axis = 0; axis != 3; ++axis) {
+                        target_position[axis] = record.world_position[axis];
+                    }
+                    context.auto_teleport.target_id = record.oracle_stone_id;
+                    found = true;
+                    break;
+                }
+            }
+        }
+        if (!found) {
+            context.auto_teleport.enabled.store(false, std::memory_order_release);
+            return;
+        }
+        for (std::size_t axis = 0; axis != 3; ++axis) {
+            context.auto_teleport.target_position[axis] = target_position[axis];
+        }
+        double approach[3]{};
+        const double offset = static_cast<double>(
+            context.auto_teleport.offset_cm.load(std::memory_order_acquire));
+        approach[0] = target_position[0] + offset;
+        approach[1] = target_position[1];
+        approach[2] = target_position[2];
+        QueueTeleport(context, approach);
+        context.auto_teleport.wait_elapsed = 0.0;
+        context.auto_teleport.stage = AutoTeleportState::Stage::Outside;
+        break;
+    }
+    case AutoTeleportState::Stage::Outside: {
+        {
+            std::scoped_lock lock(context.mutex);
+            if (context.pending.queued) return;
+        }
+        context.auto_teleport.wait_elapsed += delta_seconds;
+        const double delay = static_cast<double>(
+            context.auto_teleport.delay_ms.load(std::memory_order_acquire)) / 1000.0;
+        if (context.auto_teleport.wait_elapsed < delay) return;
+        context.auto_teleport.wait_elapsed = 0.0;
+        QueueTeleport(context, context.auto_teleport.target_position);
+        context.auto_teleport.stage = AutoTeleportState::Stage::Collecting;
+        break;
+    }
+    case AutoTeleportState::Stage::Collecting: {
+        context.auto_teleport.wait_elapsed += delta_seconds;
+        const double delay = static_cast<double>(
+            context.auto_teleport.delay_ms.load(std::memory_order_acquire)) / 1000.0;
+        if (context.auto_teleport.wait_elapsed < delay) return;
+        context.auto_teleport.stage = AutoTeleportState::Stage::FindTarget;
+        break;
+    }
     }
 }
 
@@ -781,6 +929,34 @@ void Draw(Context& context, const AnomalyUiServiceV1* ui) {
             "option.enabled", "Show uncollected Oracle Stones on the map", "enabled");
         if (ui->checkbox(ui->user, anomaly::sdk::StringView(label), &enabled)) {
             context.markers_enabled = enabled != 0;
+        }
+    }
+    if (ui->checkbox != nullptr) {
+        int auto_tp = context.auto_teleport.enabled.load(std::memory_order_acquire) ? 1 : 0;
+        const std::string auto_label = context.localizer.Label(
+            "option.auto_teleport", "Auto teleport to uncollected stones", "auto-teleport");
+        if (ui->checkbox(ui->user, anomaly::sdk::StringView(auto_label), &auto_tp)) {
+            context.auto_teleport.enabled.store(auto_tp != 0, std::memory_order_release);
+        }
+    }
+    if (ui->input_uint32 != nullptr) {
+        std::uint32_t delay_ms =
+            context.auto_teleport.delay_ms.load(std::memory_order_acquire);
+        const std::string delay_label = context.localizer.Label(
+            "option.auto_teleport_delay", "Teleport delay (ms)", "auto-teleport-delay");
+        if (ui->input_uint32(ui->user, anomaly::sdk::StringView(delay_label),
+                             &delay_ms, 100, 500)) {
+            context.auto_teleport.delay_ms.store(delay_ms, std::memory_order_release);
+        }
+    }
+    if (ui->input_uint32 != nullptr) {
+        std::uint32_t offset_cm =
+            context.auto_teleport.offset_cm.load(std::memory_order_acquire);
+        const std::string offset_label = context.localizer.Label(
+            "option.auto_teleport_offset", "Teleport offset (cm)", "auto-teleport-offset");
+        if (ui->input_uint32(ui->user, anomaly::sdk::StringView(offset_label),
+                             &offset_cm, 100, 500)) {
+            context.auto_teleport.offset_cm.store(offset_cm, std::memory_order_release);
         }
     }
 
@@ -831,7 +1007,9 @@ void Draw(Context& context, const AnomalyUiServiceV1* ui) {
 
     if (ui->begin_table != nullptr && ui->table_next_row != nullptr &&
         ui->table_next_column != nullptr && ui->end_table != nullptr) {
-        if (ui->begin_table(ui->user, anomaly::sdk::StringView("oracle-stones"), 4,
+        double teleport_position[3]{};
+        bool teleport_requested = false;
+        if (ui->begin_table(ui->user, anomaly::sdk::StringView("oracle-stones"), 5,
                             ANOMALY_UI_TABLE_V1_SIZING_FIXED_FIT, 0.0F, 0.0F)) {
             ui->table_next_row(ui->user);
             static_cast<void>(ui->table_next_column(ui->user));
@@ -842,6 +1020,8 @@ void Draw(Context& context, const AnomalyUiServiceV1* ui) {
             ui->text(ui->user, anomaly::sdk::StringView(context.localizer.Text("table.floor", "Floor")));
             static_cast<void>(ui->table_next_column(ui->user));
             ui->text(ui->user, anomaly::sdk::StringView(context.localizer.Text("table.position", "Coordinates")));
+            static_cast<void>(ui->table_next_column(ui->user));
+            ui->text(ui->user, anomaly::sdk::StringView(context.localizer.Text("table.teleport", "TP")));
 
             std::scoped_lock lock(context.mutex);
             for (const auto& record : context.records) {
@@ -862,8 +1042,23 @@ void Draw(Context& context, const AnomalyUiServiceV1* ui) {
                               record.world_position[0], record.world_position[1],
                               record.world_position[2]);
                 ui->text(ui->user, anomaly::sdk::StringView(position));
+                static_cast<void>(ui->table_next_column(ui->user));
+                if (ui->button != nullptr) {
+                    const std::string tp_label =
+                        std::string("TP##") + record.oracle_stone_id;
+                    if (ui->button(ui->user, anomaly::sdk::StringView(tp_label),
+                                   0.0F, 0.0F)) {
+                        for (std::size_t axis = 0; axis != 3; ++axis) {
+                            teleport_position[axis] = record.world_position[axis];
+                        }
+                        teleport_requested = true;
+                    }
+                }
             }
             ui->end_table(ui->user);
+        }
+        if (teleport_requested) {
+            QueueTeleport(context, teleport_position);
         }
     }
     ui->end_window(ui->user);
@@ -883,6 +1078,7 @@ AnomalyStatusV1 ANOMALY_CALL Load(const AnomalyHostApiV1* host, void** plugin_co
         context.framework = nullptr;
         context.session = nullptr;
         context.player = nullptr;
+        context.player_teleport = nullptr;
         context.g_world_address = 0;
         context.g_objects_address = 0;
         context.process_event = 0;
@@ -926,6 +1122,10 @@ AnomalyStatusV1 ANOMALY_CALL Load(const AnomalyHostApiV1* host, void** plugin_co
             host, ANOMALY_NTE_SESSION_SERVICE_V1_ID, ANOMALY_NTE_SESSION_SERVICE_V1_VERSION);
         context.player = Query<AnomalyNtePlayerServiceV1>(
             host, ANOMALY_NTE_PLAYER_SERVICE_V1_ID, ANOMALY_NTE_PLAYER_SERVICE_V1_VERSION);
+        context.player_teleport = Query<AnomalyNtePlayerTeleportServiceV1>(
+            host, ANOMALY_NTE_PLAYER_TELEPORT_SERVICE_V1_ID,
+            ANOMALY_NTE_PLAYER_TELEPORT_SERVICE_V1_VERSION);
+        context.pending = {};
         *plugin_context = &context;
         return {ANOMALY_STATUS_V1_OK, 0, {}};
     } catch (...) {
